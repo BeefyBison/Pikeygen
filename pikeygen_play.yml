@@ -1,0 +1,33 @@
+- name: Run local script
+  hosts: localhost
+  become: true
+  become_user: root
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: useracc
+      prompt: Which user would you like to update?
+    - name: basepassword
+      prompt: What is your base password? (Optional)
+    - name: pass_length
+      prompt: Length of the password? (Default 20)
+
+  tasks:
+    - name: Execute script
+      command: python3 "/opt/pikeygen/pikeygen.py" --length {{ pass_length | default(20, true) }}
+      register: script_output
+    - set_fact:
+        output_as_list: "{{ script_output.stdout_lines }}"
+    - set_fact:
+        get_password: "{{ output_as_list[1] }}"
+    - set_fact:
+        final_password: "{{ basepassword + get_password }}"
+
+    - name: Change user passwd
+      user:
+        name: "{{ useracc }}"
+        password: "{{ final_password | password_hash('sha512') }}"
+
+    - name: Print script output
+      debug:
+        var: output_as_list[0]
